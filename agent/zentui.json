@@ -13,9 +13,10 @@
             "mode": "rx/mode"
           },
           "formats": {
-            "topLeft": "$mode",
+            "topLeft": "",
             "topRight": "",
-            "bottomRight": "$model$join_sep$thinking"
+            "bottomRight": "$model$join_sep$thinking",
+            "bottomLeft": "$mode"
           }
         }
       }
