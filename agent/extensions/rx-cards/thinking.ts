@@ -1,13 +1,11 @@
 /**
  * thinking.ts — one line per reasoning block.
  *
- * While the model reasons: an animated spinner and `Thinking`.
- * Collapsed:  + Thought · 12s
- * Expanded:   − Thought · 12s, then pi's reasoning rows.
- *
- * Every hidden-thinking component in the transcript is patched, not just the
- * latest, and expansion is detected from rendered non-empty rows (pi renders
- * one label row while collapsed).
+ * Collapsed:  + Thought · 12s   (pi's hidden-thinking label, repainted)
+ * Streaming:  ⠋ Thinking
+ * Expanded:   *− Thought · 12s* prepended to the reasoning markdown itself,
+ *             so the header always sits directly above the content and pi
+ *             owns all spacing/indentation.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -20,6 +18,7 @@ const TICK_MS = 90;
 interface ThinkingComponent {
 	children: unknown[];
 	outputPad?: unknown;
+	hideThinkingBlock?: boolean;
 	render(width: number): string[];
 	setHiddenThinkingLabel(label: string): void;
 	setHideThinkingBlock(hide: boolean): void;
@@ -30,10 +29,13 @@ interface Record_ {
 	phase: "idle" | "streaming" | "settled";
 	startedAt: number;
 	endedAt: number;
+	text: string;
 }
 
 const records = new WeakMap<object, Record_>();
 const wrapped: Array<{ component: ThinkingComponent; original: ThinkingComponent["render"] }> = [];
+const durations = new Map<string, number>();
+
 let tui: TUI | undefined;
 let theme: { fg(token: string, text: string): string; italic(text: string): string } | undefined;
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -41,6 +43,7 @@ let frame = 0;
 let streaming = 0;
 
 const strip = (line: string): string => stripVTControlCharacters(line);
+const LABEL_LINE = /^\s*[+−-]?\s*(Thinking|Thought)(?:\.{3}|…)?(?:\s*(?:·|for)\s*\d+s)?\s*$/i;
 
 function isThinking(value: object): value is ThinkingComponent {
 	const component = value as unknown as Record<string, unknown>;
@@ -75,51 +78,20 @@ function seconds(record: Record_): number {
 	return Math.max(1, Math.round((end - record.startedAt) / 1000));
 }
 
-function label(record: Record_, expanded: boolean): string {
+function label(record: Record_): string {
 	if (record.phase === "streaming") return `${SPINNER[frame % SPINNER.length]} Thinking`;
 	const suffix = seconds(record) > 0 ? ` · ${seconds(record)}s` : "";
-	return `${expanded ? "−" : "+"} Thought${suffix}`;
+	return `+ Thought${suffix}`;
 }
-
-/** Expanded header keeps the collapsed label's color and italics. */
-function styledLabel(record: Record_, expanded: boolean): string {
-	const text = label(record, expanded);
-	if (theme) return theme.italic(theme.fg("thinkingText", text));
-	return `\x1b[3m${text}\x1b[0m`;
-}
-
-const LABEL_LINE = /^\s*[+−-]?\s*(Thinking|Thought)(?:\.{3}|…)?(?:\s*(?:·|for)\s*\d+s)?\s*$/i;
 
 function patch(component: ThinkingComponent): void {
 	if (records.has(component)) return;
-	const record: Record_ = { phase: "settled", startedAt: Date.now(), endedAt: Date.now() };
-	records.set(component, record);
+	records.set(component, { phase: "settled", startedAt: 0, endedAt: 0, text: "" });
 	const original = component.render;
 	const patched = function (this: ThinkingComponent, width: number): string[] {
 		const state = records.get(this)!;
-		this.setHiddenThinkingLabel(label(state, false));
-		const raw = original.call(this, width);
-		// hideThinkingBlock says the setting is on, but a per-message click can
-		// show the reasoning while that field stays true, so content is the
-		// second half of the test.
-		const hidden = (this as unknown as { hideThinkingBlock?: boolean }).hideThinkingBlock !== false;
-		const padSetting = Number((this as { outputPad?: unknown }).outputPad);
-		const pad = Number.isFinite(padSetting) ? Math.max(0, Math.min(3, Math.floor(padSetting))) : 1;
-		const indent = " ".repeat(pad);
-		const plain = raw.map((line) => strip(line));
-		const content = raw.filter((_line, index) => !LABEL_LINE.test(plain[index] ?? ""));
-		const hasContent = content.some((line) => strip(line).trim().length > 0);
-		if (hidden && !hasContent) return raw;
-		// Pi moves the spacer below the label when a block expands. Normalize:
-		// one blank row above the header, one below, then the reasoning rows.
-		let body = content;
-		while (body.length > 0 && strip(body[0] ?? "").trim() === "") body = body.slice(1);
-		const aligned = body.map((line) => {
-			if (strip(line).trim() === "") return line;
-			const leading = /^\s*/.exec(strip(line))?.[0].length ?? 0;
-			return leading < pad ? " ".repeat(pad - leading) + line : line;
-		});
-		return ["", indent + styledLabel(state, true), "", ...aligned];
+		this.setHiddenThinkingLabel(label(state));
+		return original.call(this, width);
 	};
 	component.render = patched as ThinkingComponent["render"];
 	wrapped.push({ component, original });
@@ -165,6 +137,7 @@ export function installThinkingRow(pi: ExtensionAPI): void {
 		record.phase = "streaming";
 		record.startedAt = Date.now();
 		record.endedAt = 0;
+		record.text = "";
 		active = component;
 		streaming++;
 		startTimer();
@@ -176,6 +149,7 @@ export function installThinkingRow(pi: ExtensionAPI): void {
 		if (record && record.phase === "streaming") {
 			record.phase = "settled";
 			record.endedAt = Date.now();
+			if (record.text.trim()) durations.set(record.text.trim(), seconds(record));
 			streaming = Math.max(0, streaming - 1);
 		}
 		active = undefined;
@@ -194,13 +168,16 @@ export function installThinkingRow(pi: ExtensionAPI): void {
 		if (ctx.mode !== "tui") return;
 		const message = (event as { message?: { role?: string; content?: unknown } }).message;
 		if (message?.role !== "assistant" || !Array.isArray(message.content)) return;
-		let thinking = false;
+		let thinking = "";
 		let text = false;
 		for (const part of message.content as Array<{ type?: string; thinking?: string; text?: string }>) {
-			if (part?.type === "thinking" && part.thinking) thinking = true;
+			if (part?.type === "thinking" && part.thinking) thinking = part.thinking;
 			else if (part?.type === "text" && part.text) text = true;
 		}
-		if (thinking) begin(active ?? ensurePatched());
+		if (thinking) {
+			begin(active ?? ensurePatched());
+			if (active) records.get(active)!.text = thinking;
+		}
 		if (text) settle();
 	});
 
@@ -232,4 +209,26 @@ export function installThinkingRow(pi: ExtensionAPI): void {
 		active = undefined;
 		streaming = 0;
 	});
+
+	// Expanded thinking is pi's own markdown, so inject the header there. The
+	// duration is keyed by the reasoning text, which is exact.
+	const host = pi as unknown as {
+		registerMarkdownTransformer?: (
+			transformer: (markdown: string, context: { messageType: string; isStreaming: boolean }) => string,
+			options?: { messageTypes?: readonly string[] },
+		) => void;
+	};
+	host.registerMarkdownTransformer?.(
+		(markdown, context) => {
+			if (context.messageType !== "assistant-thinking") return markdown;
+			const known = durations.get(markdown.trim());
+			const suffix = known ? ` · ${known}s` : "";
+			return `*− Thought${suffix}*\n\n${markdown}`;
+		},
+		{ messageTypes: ["assistant-thinking"] },
+	);
+
+	// Theme is only used to keep the collapsed label's styling consistent if a
+	// future host exposes the render path; referenced to avoid dead-code drift.
+	void theme;
 }
