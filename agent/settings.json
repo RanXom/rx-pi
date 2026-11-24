@@ -27,8 +27,5 @@
     "opencode-go/deepseek-v4.1-flash": "low"
   },
   "tuiMode": "fullscreen",
-  "theme": "palette",
-  "extensionChangelogVersions": {
-    "{\"source\":\"npm:pi-fast-tui\",\"scope\":\"user\"}": "0.9.0"
-  }
+  "theme": "palette"
 }
