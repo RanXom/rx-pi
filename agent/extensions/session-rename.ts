@@ -18,6 +18,8 @@ const STOP_WORDS = new Set([
 	"hey", "hi", "ok", "okay", "thanks", "thank", "say", "tell", "reply",
 	"think", "something", "anything", "look", "check", "want", "need", "help",
 	"using", "use", "again", "also", "give", "show", "find", "get",
+	"what", "where", "when", "why", "have", "has", "had", "about", "into",
+	"read", "write", "code", "dont", "building", "project", "occur", "functionality",
 ]);
 
 function textOf(content: unknown): string {
@@ -43,24 +45,23 @@ function deriveName(ctx: ExtensionContext): string | undefined {
 		if (text.trim()) messages.push(text);
 	}
 	if (messages.length === 0) return undefined;
-	// Prefer the opening request; it usually names the task.
-	const words = [messages[0]!, ...messages.slice(-2)]
-		.join(" ")
-		.toLowerCase()
-		.replace(/https?:\/\/\S+/g, " ")
-		.replace(/[^a-z0-9\s-]/g, " ")
-		.split(/\s+/)
-		.filter((word) => word.length > 1 && !STOP_WORDS.has(word));
-	const seen = new Set<string>();
+
+	let text = messages[0]!.toLowerCase().replace(/https?:\/\/\S+/g, " ");
+	// "hyphen L" reads better as the flag it means.
+	text = text.replace(/\b(hyphen|dash)\s+([a-z0-9])\b/g, "-$2");
+	// "how do you, how do I add" collapses to "how add".
+	text = text.replace(/\bhow\s+(?:do|does|can|could|would|should)\s+(?:you|i|we)\b/g, "how");
+
+	const words = text.match(/-?[a-z0-9]+(?:'[a-z]+)?/g) ?? [];
 	const picked: string[] = [];
 	for (const word of words) {
-		if (seen.has(word)) continue;
-		seen.add(word);
+		const keep = word === "how" || word === "to";
+		if (!keep && STOP_WORDS.has(word)) continue;
+		if (picked.length > 0 && picked[picked.length - 1] === word) continue;
 		picked.push(word);
-		if (picked.length === 4) break;
+		if (picked.length >= 8) break;
 	}
 	if (picked.length === 0) {
-		// Everything was filler ("hi", "say ok"): keep the first few words anyway.
 		const fallback = messages[0]!
 			.replace(/[^a-zA-Z0-9\s-]/g, " ")
 			.trim()
@@ -69,7 +70,15 @@ function deriveName(ctx: ExtensionContext): string | undefined {
 			.join(" ");
 		return fallback ? fallback.replace(/^./, (char) => char.toUpperCase()) : undefined;
 	}
-	return picked.join(" ").replace(/^./, (char) => char.toUpperCase());
+	// A question should read "How to add -l flag", not "How add to -l flag".
+	if (picked[0] === "how") {
+		const rest = picked.slice(1).filter((word) => word !== "to");
+		picked.splice(0, picked.length, "how", "to", ...rest);
+	}
+	return picked
+		.slice(0, 5)
+		.join(" ")
+		.replace(/^./, (char) => char.toUpperCase());
 }
 
 export default function sessionRename(pi: ExtensionAPI): void {
