@@ -59,7 +59,16 @@ function deriveName(ctx: ExtensionContext): string | undefined {
 		picked.push(word);
 		if (picked.length === 4) break;
 	}
-	if (picked.length === 0) return undefined;
+	if (picked.length === 0) {
+		// Everything was filler ("hi", "say ok"): keep the first few words anyway.
+		const fallback = messages[0]!
+			.replace(/[^a-zA-Z0-9\s-]/g, " ")
+			.trim()
+			.split(/\s+/)
+			.slice(0, 3)
+			.join(" ");
+		return fallback ? fallback.replace(/^./, (char) => char.toUpperCase()) : undefined;
+	}
 	return picked.join(" ").replace(/^./, (char) => char.toUpperCase());
 }
 
@@ -82,6 +91,12 @@ export default function sessionRename(pi: ExtensionAPI): void {
 			const explicit = args.trim();
 			const name = explicit || deriveName(ctx);
 			if (!name) {
+				try {
+					const entries = ctx.sessionManager.getEntries() as Array<{ type?: string; message?: { role?: string; content?: unknown } }>;
+					require("node:fs").writeFileSync("/tmp/rename-debug.json", JSON.stringify(entries.map((e) => ({ type: e.type, role: e.message?.role })), null, 1));
+				} catch (error) {
+					require("node:fs").writeFileSync("/tmp/rename-debug.json", String(error));
+				}
 				ctx.ui.notify("Nothing to name the session from yet.", "warning");
 				return;
 			}
