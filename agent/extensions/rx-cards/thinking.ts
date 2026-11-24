@@ -34,6 +34,7 @@ interface Record_ {
 const records = new WeakMap<object, Record_>();
 const wrapped: Array<{ component: ThinkingComponent; original: ThinkingComponent["render"] }> = [];
 let tui: TUI | undefined;
+let theme: { fg(token: string, text: string): string; italic(text: string): string } | undefined;
 let timer: ReturnType<typeof setInterval> | undefined;
 let frame = 0;
 let streaming = 0;
@@ -79,6 +80,15 @@ function label(record: Record_, expanded: boolean): string {
 	return `${expanded ? "−" : "+"} Thought${suffix}`;
 }
 
+/** Expanded header keeps the collapsed label's color and italics. */
+function styledLabel(record: Record_, expanded: boolean): string {
+	const text = label(record, expanded);
+	if (theme) return theme.italic(theme.fg("thinkingText", text));
+	return `\x1b[3m${text}\x1b[0m`;
+}
+
+const LABEL_LINE = /^\s*[+−-]?\s*(Thinking|Thought)(\s*·\s*\d+s)?\s*$/;
+
 function patch(component: ThinkingComponent): void {
 	if (records.has(component)) return;
 	const record: Record_ = { phase: "settled", startedAt: Date.now(), endedAt: Date.now() };
@@ -87,13 +97,16 @@ function patch(component: ThinkingComponent): void {
 	const patched = function (this: ThinkingComponent, width: number): string[] {
 		const state = records.get(this)!;
 		this.setHiddenThinkingLabel(label(state, false));
-		let lines = original.call(this, width);
-		const plain = lines.map(strip).filter((line) => line.trim().length > 0);
-		if (plain.length > 1) {
-			if (/^\s*(Thinking|Thought)\b/i.test(strip(lines[0] ?? ""))) lines = lines.slice(1);
-			lines = [`\x1b[3m${label(state, true)}\x1b[0m`, ...lines];
-		}
-		return lines;
+		const raw = original.call(this, width);
+		// Expanded renders include the reasoning rows plus a native label row;
+		// collapsed renders are label/blank rows only.
+		const content = raw.filter((line) => !LABEL_LINE.test(strip(line)));
+		const hasContent = content.some((line) => strip(line).trim().length > 0);
+		if (!hasContent) return raw;
+		// Pi drops the spacer row when the block expands; put it back so the
+		// header keeps its position and spacing.
+		const leading = content.length > 0 && strip(content[0] ?? "").trim() === "" ? [] : [""];
+		return [...leading, styledLabel(state, true), ...content];
 	};
 	component.render = patched as ThinkingComponent["render"];
 	wrapped.push({ component, original });
@@ -150,6 +163,7 @@ export function installThinkingRow(pi: ExtensionAPI): void {
 
 	pi.on("message_start", (event, ctx) => {
 		if (ctx.mode !== "tui") return;
+		theme = (ctx as { ui: { theme: typeof theme } }).ui.theme;
 		const message = (event as { message?: { role?: string } }).message;
 		if (message?.role === "assistant") active = undefined;
 	});
@@ -176,6 +190,7 @@ export function installThinkingRow(pi: ExtensionAPI): void {
 
 	pi.on("session_start", (_event: unknown, ctx: ExtensionContext) => {
 		if (ctx.mode !== "tui") return;
+		theme = (ctx as { ui: { theme: typeof theme } }).ui.theme;
 		ctx.ui.setWidget("rx-cards-tui", (view: TUI) => {
 			tui = view;
 			ensurePatched();
