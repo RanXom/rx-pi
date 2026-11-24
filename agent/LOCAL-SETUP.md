@@ -65,7 +65,7 @@ including `ask_user_question` popups (Tab into a text field for opaque selects).
 - Capture: ffmpeg/pulse, `arecord` optional
 - Runtime: under the standalone binary the model loads **in-process** (~1.5 s,
   ~0.5–1 s decode); under an npm install it uses `transcribe-daemon.cjs`
-- Unload after 10 idle minutes, or `/dictate-unload`
+- Unloads automatically after each transcript; `/dictate-unload` is manual only
 - Config: `~/.pi/agent/dictate.json`
 - Memory while loaded: roughly +700 MB (ONNX runtime + int8 weights)
 

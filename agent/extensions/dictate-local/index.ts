@@ -192,6 +192,16 @@ export default function dictateLocal(pi: ExtensionAPI) {
     }
   };
 
+  const unloadNow = () => {
+    killDaemon();
+    // Bun keeps the ONNX buffers until a collection; nudge it after each take.
+    try {
+      (globalThis as { Bun?: { gc?: (force?: boolean) => void } }).Bun?.gc?.(true);
+    } catch {
+      /* ignore */
+    }
+  };
+
   const touchIdle = () => {
     if (idleTimer) clearTimeout(idleTimer);
     if (settings.idleUnloadMinutes <= 0) return;
@@ -477,7 +487,6 @@ export default function dictateLocal(pi: ExtensionAPI) {
       setStatus(undefined);
       if (cancelled) return;
       deliver(text);
-      touchIdle();
     } catch (error: any) {
       clearStatusTimers();
       setStatus(undefined);
@@ -490,7 +499,7 @@ export default function dictateLocal(pi: ExtensionAPI) {
         /* ignore */
       }
       wavPath = "";
-      touchIdle();
+      unloadNow();
     }
   };
 
@@ -516,6 +525,7 @@ export default function dictateLocal(pi: ExtensionAPI) {
           }
         }
         wavPath = "";
+        unloadNow();
         activeCtx?.ui.notify("Dictation cancelled.", "info");
       });
     }
