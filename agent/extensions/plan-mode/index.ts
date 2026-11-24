@@ -61,6 +61,8 @@ export default function planModeExtension(pi: ExtensionAPI): void {
 		default: false,
 	});
 
+	let planTui: { requestRender?: () => void } | undefined;
+
 	function publishMode(): void {
 		// Zentui minimalist editor reads this through the alias `mode`.
 		const capability = { supported: false, active: false, key: "rx/mode" };
@@ -69,6 +71,7 @@ export default function planModeExtension(pi: ExtensionAPI): void {
 			key: "rx/mode",
 			text: planModeEnabled ? "plan" : "build",
 		});
+		planTui?.requestRender?.();
 	}
 
 	function updateStatus(ctx: ExtensionContext): void {
@@ -382,6 +385,15 @@ After completing a step, include a [DONE:n] tag in your response.`;
 	let modeTimer: ReturnType<typeof setInterval> | undefined;
 
 	pi.on("session_start", async (_event, ctx) => {
+		ctx.ui.setWidget("plan-mode-tui", (tui) => {
+			planTui = tui as { requestRender?: () => void };
+			return { render: () => [], invalidate: () => {} };
+		});
+		publishMode();
+		if (!modeTimer) {
+			modeTimer = setInterval(publishMode, 1000);
+			modeTimer.unref?.();
+		}
 		if (pi.getFlag("plan") === true) {
 			planModeEnabled = true;
 		}
