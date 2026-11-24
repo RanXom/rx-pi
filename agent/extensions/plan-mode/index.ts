@@ -145,13 +145,16 @@ export default function planModeExtension(pi: ExtensionAPI): void {
 
 		if (planModeEnabled) {
 			enablePlanModeTools();
-			ctx.ui.notify("Plan mode enabled. Built-in write tools disabled.");
 		} else {
 			restoreNormalModeTools();
-			ctx.ui.notify("Plan mode disabled. Full access restored.");
 		}
 		updateStatus(ctx);
 		persistState();
+		publishMode();
+		if (!modeTimer) {
+			modeTimer = setInterval(publishMode, 1000);
+			modeTimer.unref?.();
+		}
 	}
 
 	pi.registerCommand("plan", {
@@ -275,6 +278,11 @@ After completing a step, include a [DONE:n] tag in your response.`,
 		// Always refresh: cheap, keeps the widget consistent even when nothing matched.
 		updateStatus(ctx);
 		persistState();
+		publishMode();
+		if (!modeTimer) {
+			modeTimer = setInterval(publishMode, 1000);
+			modeTimer.unref?.();
+		}
 	});
 
 	// Handle plan completion and plan mode UI
@@ -371,7 +379,7 @@ After completing a step, include a [DONE:n] tag in your response.`;
 		publishMode();
 	});
 
-	setTimeout(publishMode, 1500);
+	let modeTimer: ReturnType<typeof setInterval> | undefined;
 
 	pi.on("session_start", async (_event, ctx) => {
 		if (pi.getFlag("plan") === true) {
