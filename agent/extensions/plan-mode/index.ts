@@ -64,14 +64,18 @@ export default function planModeExtension(pi: ExtensionAPI): void {
 	let planTui: { requestRender?: () => void } | undefined;
 
 	function publishMode(): void {
-		// Zentui minimalist editor reads this through the alias `mode`.
-		const capability = { supported: false, active: false, key: "rx/mode" };
-		pi.events.emit("zentui:variable-capability", capability);
-		pi.events.emit("zentui:variable", {
-			key: "rx/mode",
-			text: planModeEnabled ? "plan" : "build",
-		});
-		planTui?.requestRender?.();
+		try {
+			// Zentui minimalist editor reads this through the alias `mode`.
+			const capability = { supported: false, active: false, key: "rx/mode" };
+			pi.events.emit("zentui:variable-capability", capability);
+			pi.events.emit("zentui:variable", {
+				key: "rx/mode",
+				text: planModeEnabled ? "plan" : "build",
+			});
+			planTui?.requestRender?.();
+		} catch {
+			// Stale extension ctx after session replacement or /reload.
+		}
 	}
 
 	function updateStatus(ctx: ExtensionContext): void {
@@ -154,9 +158,13 @@ export default function planModeExtension(pi: ExtensionAPI): void {
 		updateStatus(ctx);
 		persistState();
 		publishMode();
-		if (!modeTimer) {
-			modeTimer = setInterval(publishMode, 1000);
-			modeTimer.unref?.();
+		for (const delay of [250, 750, 1500, 3000]) {
+			const timer = setTimeout(() => {
+				bootTimers.delete(timer);
+				publishMode();
+			}, delay);
+			timer.unref?.();
+			bootTimers.add(timer);
 		}
 	}
 
@@ -282,9 +290,13 @@ After completing a step, include a [DONE:n] tag in your response.`,
 		updateStatus(ctx);
 		persistState();
 		publishMode();
-		if (!modeTimer) {
-			modeTimer = setInterval(publishMode, 1000);
-			modeTimer.unref?.();
+		for (const delay of [250, 750, 1500, 3000]) {
+			const timer = setTimeout(() => {
+				bootTimers.delete(timer);
+				publishMode();
+			}, delay);
+			timer.unref?.();
+			bootTimers.add(timer);
 		}
 	});
 
@@ -382,7 +394,7 @@ After completing a step, include a [DONE:n] tag in your response.`;
 		publishMode();
 	});
 
-	let modeTimer: ReturnType<typeof setInterval> | undefined;
+	const bootTimers = new Set<ReturnType<typeof setTimeout>>();
 
 	pi.on("session_start", async (_event, ctx) => {
 		ctx.ui.setWidget("plan-mode-tui", (tui) => {
@@ -390,9 +402,13 @@ After completing a step, include a [DONE:n] tag in your response.`;
 			return { render: () => [], invalidate: () => {} };
 		});
 		publishMode();
-		if (!modeTimer) {
-			modeTimer = setInterval(publishMode, 1000);
-			modeTimer.unref?.();
+		for (const delay of [250, 750, 1500, 3000]) {
+			const timer = setTimeout(() => {
+				bootTimers.delete(timer);
+				publishMode();
+			}, delay);
+			timer.unref?.();
+			bootTimers.add(timer);
 		}
 		if (pi.getFlag("plan") === true) {
 			planModeEnabled = true;
