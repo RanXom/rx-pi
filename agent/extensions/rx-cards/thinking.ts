@@ -99,19 +99,25 @@ function patch(component: ThinkingComponent): void {
 		const state = records.get(this)!;
 		this.setHiddenThinkingLabel(label(state, false));
 		const raw = original.call(this, width);
-		// Expanded renders include the reasoning rows plus a native label row;
-		// collapsed renders are label/blank rows only.
+		// The component owns the truth: hideThinkingBlock flips on click.
+		const hidden = (this as unknown as { hideThinkingBlock?: boolean }).hideThinkingBlock !== false;
+		if (hidden) return raw;
+		const padSetting = Number((this as { outputPad?: unknown }).outputPad);
+		const pad = Number.isFinite(padSetting) ? Math.max(0, Math.min(3, Math.floor(padSetting))) : 1;
+		const indent = " ".repeat(pad);
 		const plain = raw.map((line) => strip(line));
-		const labelIndex = plain.findIndex((line) => LABEL_LINE.test(line));
-		const indent = labelIndex >= 0 ? (/^\s*/.exec(plain[labelIndex] ?? "")?.[0] ?? "") : "";
 		const content = raw.filter((_line, index) => !LABEL_LINE.test(plain[index] ?? ""));
-		const hasContent = content.some((line) => strip(line).trim().length > 0);
-		if (!hasContent) return raw;
+		if (!content.some((line) => strip(line).trim().length > 0)) return raw;
 		// Pi moves the spacer below the label when a block expands. Normalize:
 		// one blank row above the header, one below, then the reasoning rows.
 		let body = content;
 		while (body.length > 0 && strip(body[0] ?? "").trim() === "") body = body.slice(1);
-		return ["", indent + styledLabel(state, true), "", ...body];
+		const aligned = body.map((line) => {
+			if (strip(line).trim() === "") return line;
+			const leading = /^\s*/.exec(strip(line))?.[0].length ?? 0;
+			return leading < pad ? " ".repeat(pad - leading) + line : line;
+		});
+		return ["", indent + styledLabel(state, true), "", ...aligned];
 	};
 	component.render = patched as ThinkingComponent["render"];
 	wrapped.push({ component, original });
@@ -207,8 +213,13 @@ export function installThinkingRow(pi: ExtensionAPI): void {
 		theme = (ctx as { ui: { theme: typeof theme } }).ui.theme;
 		ctx.ui.setWidget("rx-cards-tui", (view: TUI) => {
 			tui = view;
-			ensurePatched();
-			return { render: () => [], invalidate: () => {} };
+			return {
+				render: () => {
+					ensurePatched();
+					return [];
+				},
+				invalidate: () => {},
+			};
 		});
 	});
 
