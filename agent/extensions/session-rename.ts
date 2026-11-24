@@ -91,12 +91,6 @@ export default function sessionRename(pi: ExtensionAPI): void {
 			const explicit = args.trim();
 			const name = explicit || deriveName(ctx);
 			if (!name) {
-				try {
-					const entries = ctx.sessionManager.getEntries() as Array<{ type?: string; message?: { role?: string; content?: unknown } }>;
-					require("node:fs").writeFileSync("/tmp/rename-debug.json", JSON.stringify(entries.map((e) => ({ type: e.type, role: e.message?.role })), null, 1));
-				} catch (error) {
-					require("node:fs").writeFileSync("/tmp/rename-debug.json", String(error));
-				}
 				ctx.ui.notify("Nothing to name the session from yet.", "warning");
 				return;
 			}
