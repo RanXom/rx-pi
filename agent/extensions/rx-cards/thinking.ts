@@ -99,15 +99,17 @@ function patch(component: ThinkingComponent): void {
 		const state = records.get(this)!;
 		this.setHiddenThinkingLabel(label(state, false));
 		const raw = original.call(this, width);
-		// The component owns the truth: hideThinkingBlock flips on click.
+		// hideThinkingBlock says the setting is on, but a per-message click can
+		// show the reasoning while that field stays true, so content is the
+		// second half of the test.
 		const hidden = (this as unknown as { hideThinkingBlock?: boolean }).hideThinkingBlock !== false;
-		if (hidden) return raw;
 		const padSetting = Number((this as { outputPad?: unknown }).outputPad);
 		const pad = Number.isFinite(padSetting) ? Math.max(0, Math.min(3, Math.floor(padSetting))) : 1;
 		const indent = " ".repeat(pad);
 		const plain = raw.map((line) => strip(line));
 		const content = raw.filter((_line, index) => !LABEL_LINE.test(plain[index] ?? ""));
-		if (!content.some((line) => strip(line).trim().length > 0)) return raw;
+		const hasContent = content.some((line) => strip(line).trim().length > 0);
+		if (hidden && !hasContent) return raw;
 		// Pi moves the spacer below the label when a block expands. Normalize:
 		// one blank row above the header, one below, then the reasoning rows.
 		let body = content;
