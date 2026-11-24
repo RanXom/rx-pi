@@ -14,6 +14,48 @@
     "modelOverrides": {
       "opencode-go/deepseek-v4.1-flash": {
         "reserveTokens": 200000
+      },
+      "opencode-go/beam-free": {
+        "reserveTokens": 210000
+      },
+      "opencode-go/hungerg-free": {
+        "reserveTokens": 200000
+      },
+      "opencode-go/hy4-flash-free": {
+        "reserveTokens": 210000
+      },
+      "opencode-go/iceman-contributor-free": {
+        "reserveTokens": 52400
+      },
+      "opencode-go/claude-haiku-5-5": {
+        "reserveTokens": 200000
+      },
+      "opencode-go/gpt-6-luna": {
+        "reserveTokens": 210000
+      },
+      "opencode-go/muse-spark-1.2-contributor": {
+        "reserveTokens": 210000
+      },
+      "opencode-go/muse-spark-1.3-contributor": {
+        "reserveTokens": 210000
+      },
+      "opencode-go/hy3": {
+        "reserveTokens": 51200
+      },
+      "opencode-go/mimo-v2.5": {
+        "reserveTokens": 200000
+      },
+      "opencode-go/mimo-v2.6-flash": {
+        "reserveTokens": 210000
+      },
+      "opencode-go/glm-5.3-flash": {
+        "reserveTokens": 200000
+      },
+      "opencode-go/minimax-m3.1-flash": {
+        "reserveTokens": 200000
+      },
+      "opencode-go/qwen3.8-flash": {
+        "reserveTokens": 200000
       }
     }
   },
