@@ -28,7 +28,7 @@ class PlanCard implements Component {
 				header: "Execute plan",
 				state: "success",
 				applyBg: false,
-				sections: [{ label: "Plan", lines }],
+				sections: [{ lines }],
 			},
 			this.theme,
 		);
@@ -65,7 +65,6 @@ class PlanTodoCard implements Component {
 			{
 				width,
 				header: "Plan steps",
-				footerMeta: count > 0 ? `${done}/${count} done` : undefined,
 				state: count > 0 && done === count ? "success" : "pending",
 				applyBg: false,
 				sections: [{ lines: body }],
