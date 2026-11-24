@@ -14,7 +14,7 @@
           },
           "formats": {
             "topLeft": "",
-            "topRight": "",
+            "topRight": "$session_name",
             "bottomRight": "$model$join_sep$thinking",
             "bottomLeft": "$mode"
           }
