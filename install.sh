@@ -56,5 +56,7 @@ s = s.replace('''\t{
 p.write_text(s)
 PY
 
+python3 "$here/patches/zentui-compact-rules.py" "$agent"
+
 echo "Installed into $agent"
 echo "Next: pi auth login opencode-go --api-key"
