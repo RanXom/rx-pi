@@ -11,6 +11,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { stripVTControlCharacters } from "node:util";
 import type { TUI } from "@earendil-works/pi-tui";
 
 const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -39,7 +40,7 @@ let timer: ReturnType<typeof setInterval> | undefined;
 let frame = 0;
 let streaming = 0;
 
-const strip = (line: string): string => line.replace(/\x1b\[[0-9;]*m/g, "");
+const strip = (line: string): string => stripVTControlCharacters(line);
 
 function isThinking(value: object): value is ThinkingComponent {
 	const component = value as unknown as Record<string, unknown>;
@@ -87,7 +88,7 @@ function styledLabel(record: Record_, expanded: boolean): string {
 	return `\x1b[3m${text}\x1b[0m`;
 }
 
-const LABEL_LINE = /^\s*[+−-]?\s*(Thinking|Thought)(\s*·\s*\d+s)?\s*$/;
+const LABEL_LINE = /^\s*[+−-]?\s*(Thinking|Thought)(?:\.{3}|…)?(?:\s*(?:·|for)\s*\d+s)?\s*$/i;
 
 function patch(component: ThinkingComponent): void {
 	if (records.has(component)) return;
@@ -100,14 +101,17 @@ function patch(component: ThinkingComponent): void {
 		const raw = original.call(this, width);
 		// Expanded renders include the reasoning rows plus a native label row;
 		// collapsed renders are label/blank rows only.
-		const content = raw.filter((line) => !LABEL_LINE.test(strip(line)));
+		const plain = raw.map((line) => strip(line));
+		const labelIndex = plain.findIndex((line) => LABEL_LINE.test(line));
+		const indent = labelIndex >= 0 ? (/^\s*/.exec(plain[labelIndex] ?? "")?.[0] ?? "") : "";
+		const content = raw.filter((_line, index) => !LABEL_LINE.test(plain[index] ?? ""));
 		const hasContent = content.some((line) => strip(line).trim().length > 0);
 		if (!hasContent) return raw;
 		// Pi moves the spacer below the label when a block expands. Normalize:
 		// one blank row above the header, one below, then the reasoning rows.
 		let body = content;
 		while (body.length > 0 && strip(body[0] ?? "").trim() === "") body = body.slice(1);
-		return ["", styledLabel(state, true), "", ...body];
+		return ["", indent + styledLabel(state, true), "", ...body];
 	};
 	component.render = patched as ThinkingComponent["render"];
 	wrapped.push({ component, original });
