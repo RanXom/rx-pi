@@ -103,10 +103,11 @@ function patch(component: ThinkingComponent): void {
 		const content = raw.filter((line) => !LABEL_LINE.test(strip(line)));
 		const hasContent = content.some((line) => strip(line).trim().length > 0);
 		if (!hasContent) return raw;
-		// Pi drops the spacer row when the block expands; put it back so the
-		// header keeps its position and spacing.
-		const leading = content.length > 0 && strip(content[0] ?? "").trim() === "" ? [] : [""];
-		return [...leading, styledLabel(state, true), ...content];
+		// Pi moves the spacer below the label when a block expands. Normalize:
+		// one blank row above the header, one below, then the reasoning rows.
+		let body = content;
+		while (body.length > 0 && strip(body[0] ?? "").trim() === "") body = body.slice(1);
+		return ["", styledLabel(state, true), "", ...body];
 	};
 	component.render = patched as ThinkingComponent["render"];
 	wrapped.push({ component, original });
@@ -138,6 +139,15 @@ export function installThinkingRow(pi: ExtensionAPI): void {
 
 	const begin = (component: ThinkingComponent | undefined): void => {
 		if (!component) return;
+		for (const { component: other } of wrapped) {
+			if (other === component) continue;
+			const previous = records.get(other);
+			if (previous?.phase === "streaming") {
+				previous.phase = "settled";
+				previous.endedAt = Date.now();
+				streaming = Math.max(0, streaming - 1);
+			}
+		}
 		const record = records.get(component)!;
 		if (record.phase === "streaming") return;
 		record.phase = "streaming";
