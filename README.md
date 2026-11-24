@@ -33,7 +33,7 @@ curl -fsSL https://pi.dev/install.sh | sh
 2. Clone and run the installer. `npm` is only needed during install:
 
 ```bash
-git clone <this-repo> ~/rx-pi
+git clone git@github.com:RanXom/rx-pi.git ~/rx-pi
 cd ~/rx-pi
 nix shell nixpkgs#nodejs_24 -c ./install.sh   # or any Node >= 22.19 on PATH
 ```
