@@ -6,7 +6,19 @@
     "editor": {
       "enabled": true,
       "style": "minimalist",
-      "colorSource": "terminal"
+      "colorSource": "terminal",
+      "styles": {
+        "minimalist": {
+          "variables": {
+            "mode": "rx/mode"
+          },
+          "formats": {
+            "topLeft": "$mode",
+            "topRight": "",
+            "bottomRight": "$model$join_sep$thinking"
+          }
+        }
+      }
     },
     "userMessages": {
       "enabled": true,

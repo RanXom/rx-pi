@@ -153,6 +153,7 @@ function infoLines(theme: Theme, state: HeaderState): Seg[][] {
 	}
 
 	return [
+		[],
 		[{ text: shortenPath(state.cwd), style: (text) => theme.bold(theme.fg("accent", text)) }],
 		hints,
 		meta,
