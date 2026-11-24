@@ -48,7 +48,7 @@ s = s.replace('''\t{
 \t\tcomponents: {
 \t\t\teditor: { enabled: true, style: "minimalist" },
 \t\t\tfooter: { style: "starship" },
-\t\t\tuserMessages: { enabled: true, style: "framed" },
+\t\t\tuserMessages: { enabled: true, style: "compact" },
 \t\t},
 \t},
 \t{

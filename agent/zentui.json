@@ -10,7 +10,7 @@
     },
     "userMessages": {
       "enabled": true,
-      "style": "framed"
+      "style": "compact"
     },
     "footer": {
       "style": "starship",
