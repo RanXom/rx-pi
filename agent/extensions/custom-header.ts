@@ -147,23 +147,14 @@ function infoLines(theme: Theme, state: HeaderState): Seg[][] {
 	const statusColor: Styler = (text) => theme.fg(busy ? "accent" : "success", text);
 
 	const meta: Seg[] = [{ text: `v${VERSION}`, style: dim }];
-	const detail = [state.model, state.branch].filter(Boolean).join(" · ");
-	if (detail) {
+	if (state.model) {
 		meta.push({ text: "  ·  ", style: dim });
-		meta.push({ text: detail, style: muted });
+		meta.push({ text: state.model, style: muted });
 	}
 
 	return [
-		[
-			{ text: "π ", style: accent },
-			{ text: shortenPath(state.cwd), style: (text) => theme.bold(theme.fg("accent", text)) },
-		],
+		[{ text: shortenPath(state.cwd), style: (text) => theme.bold(theme.fg("accent", text)) }],
 		hints,
-		[
-			{ text: "●", style: statusColor },
-			{ text: " ", style: dim },
-			{ text: state.status, style: statusColor },
-		],
 		meta,
 	];
 }
