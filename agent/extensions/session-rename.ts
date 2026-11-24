@@ -1,10 +1,10 @@
 /**
  * session-rename — `/rename` with context-derived names.
  *
- * `/rename <name>` sets the session display name.
- * `/rename` with no argument derives one from the conversation so far.
- * Sessions that are still unnamed also get a derived name after their first
- * completed turn, once.
+ * `/rename <name>` sets the display name.
+ * `/rename` with no argument asks the selected model for a short title in one
+ * hidden request; if that fails, a local heuristic derives one.
+ * Unnamed sessions are named once after their first completed turn.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -30,7 +30,27 @@ function textOf(content: unknown): string {
 		.join(" ");
 }
 
-function deriveName(ctx: ExtensionContext): string | undefined {
+function conversation(ctx: ExtensionContext, limit = 6): string {
+	let entries: unknown[] = [];
+	try {
+		entries = ctx.sessionManager.getEntries() as unknown[];
+	} catch {
+		return "";
+	}
+	const parts: string[] = [];
+	for (const entry of entries) {
+		const record = entry as { type?: string; message?: { role?: string; content?: unknown } };
+		if (record.type !== "message") continue;
+		const role = record.message?.role;
+		if (role !== "user" && role !== "assistant") continue;
+		const text = textOf(record.message?.content).replace(/\s+/g, " ").trim();
+		if (text) parts.push(`${role}: ${text.slice(0, 400)}`);
+	}
+	return parts.slice(-limit).join("\n");
+}
+
+/** Local fallback: first request, flags preserved, "how to" kept. */
+function heuristicName(ctx: ExtensionContext): string | undefined {
 	let entries: unknown[] = [];
 	try {
 		entries = ctx.sessionManager.getEntries() as unknown[];
@@ -47,9 +67,7 @@ function deriveName(ctx: ExtensionContext): string | undefined {
 	if (messages.length === 0) return undefined;
 
 	let text = messages[0]!.toLowerCase().replace(/https?:\/\/\S+/g, " ");
-	// "hyphen L" reads better as the flag it means.
 	text = text.replace(/\b(hyphen|dash)\s+([a-z0-9])\b/g, "-$2");
-	// "how do you, how do I add" collapses to "how add".
 	text = text.replace(/\bhow\s+(?:do|does|can|could|would|should)\s+(?:you|i|we)\b/g, "how");
 
 	const words = text.match(/-?[a-z0-9]+(?:'[a-z]+)?/g) ?? [];
@@ -70,7 +88,6 @@ function deriveName(ctx: ExtensionContext): string | undefined {
 			.join(" ");
 		return fallback ? fallback.replace(/^./, (char) => char.toUpperCase()) : undefined;
 	}
-	// A question should read "How to add -l flag", not "How add to -l flag".
 	if (picked[0] === "how") {
 		const rest = picked.slice(1).filter((word) => word !== "to");
 		picked.splice(0, picked.length, "how", "to", ...rest);
@@ -79,6 +96,51 @@ function deriveName(ctx: ExtensionContext): string | undefined {
 		.slice(0, 5)
 		.join(" ")
 		.replace(/^./, (char) => char.toUpperCase());
+}
+
+/** One hidden request on the selected model: 3–6 words, title only. */
+async function modelName(ctx: ExtensionContext): Promise<string | undefined> {
+	const model = ctx.model;
+	if (!model) return undefined;
+	const transcript = conversation(ctx);
+	if (!transcript) return undefined;
+	try {
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const timeout = new Promise<never>((_, reject) => {
+			timer = setTimeout(() => reject(new Error("rename timeout")), 20000);
+			timer.unref?.();
+		});
+		const response = await Promise.race([
+			ctx.modelRegistry.complete(
+				model,
+			{
+				systemPrompt:
+					"You name coding sessions. Reply with ONLY a 3-6 word title, no quotes, no trailing punctuation, no explanation.",
+				messages: [
+					{
+						role: "user",
+						content: [{ type: "text", text: `Conversation:\n${transcript}\n\nTitle:` }],
+						timestamp: Date.now(),
+					},
+				],
+			},
+				{ maxTokens: 300, reasoningEffort: "minimal", sessionId: ctx.sessionManager.getSessionId() },
+			),
+			timeout,
+		]);
+		if (timer) clearTimeout(timer);
+		const text = response.content
+			.filter((part): part is { type: "text"; text: string } => part.type === "text")
+			.map((part) => part.text)
+			.join(" ")
+			.replace(/\s+/g, " ")
+			.trim()
+			.replace(/^["'`]+|["'`.]+$/g, "")
+			.trim();
+		return text ? text.slice(0, 60) : undefined;
+	} catch (error) {
+		return undefined;
+	}
 }
 
 export default function sessionRename(pi: ExtensionAPI): void {
@@ -98,7 +160,8 @@ export default function sessionRename(pi: ExtensionAPI): void {
 		description: "Rename the session; leave blank to derive a name from context",
 		handler: async (args, ctx) => {
 			const explicit = args.trim();
-			const name = explicit || deriveName(ctx);
+			const model = await modelName(ctx);
+			const name = explicit || model || heuristicName(ctx);
 			if (!name) {
 				ctx.ui.notify("Nothing to name the session from yet.", "warning");
 				return;
@@ -115,8 +178,10 @@ export default function sessionRename(pi: ExtensionAPI): void {
 		} catch {
 			return;
 		}
-		const name = deriveName(ctx);
-		if (name) apply(name, ctx);
+		void (async () => {
+			const name = (await modelName(ctx)) || heuristicName(ctx);
+			if (name) apply(name, ctx);
+		})();
 	});
 
 	pi.on("session_start", () => {
