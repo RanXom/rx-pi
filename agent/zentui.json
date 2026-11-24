@@ -1,0 +1,36 @@
+{
+  "icons": {
+    "mode": "nerd"
+  },
+  "components": {
+    "editor": {
+      "enabled": true,
+      "style": "minimalist",
+      "colorSource": "terminal"
+    },
+    "userMessages": {
+      "enabled": true,
+      "style": "framed"
+    },
+    "footer": {
+      "style": "starship",
+      "colorSource": "terminal",
+      "enabled": true
+    },
+    "selectorBorders": {
+      "enabled": true,
+      "style": "zentui",
+      "colorSource": "terminal"
+    },
+    "thinkingSteps": {
+      "enabled": false,
+      "mode": "streaming"
+    },
+    "workingLine": {
+      "enabled": true
+    },
+    "toolDisplay": {
+      "enabled": false
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "lastChangelogVersion": "1.6.0",
+  "skills": [
+    "!~/.agents/**"
+  ],
+  "packages": [
+    "npm:pi-zentui"
+  ],
+  "defaultProvider": "opencode-go",
+  "defaultModel": "deepseek-v4.1-flash",
+  "fullscreenExitOutput": "resume-hint",
+  "quietStartup": "header",
+  "compaction": {
+    "modelOverrides": {
+      "opencode-go/deepseek-v4.1-flash": {
+        "reserveTokens": 200000
+      }
+    }
+  },
+  "showHardwareCursor": true,
+  "defaultThinkingLevel": "low",
+  "images": {
+    "autoResize": false
+  },
+  "hideThinkingBlock": true,
+  "modelThinkingLevels": {
+    "opencode-go/deepseek-v4.1-flash": "low"
+  },
+  "tuiMode": "fullscreen",
+  "theme": "palette",
+  "extensionChangelogVersions": {
+    "{\"source\":\"npm:pi-fast-tui\",\"scope\":\"user\"}": "0.9.0"
+  }
+}

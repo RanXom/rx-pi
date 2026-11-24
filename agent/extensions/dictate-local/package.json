@@ -1,0 +1,8 @@
+{
+  "name": "pi-dictate-local",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "sherpa-onnx-node": "1.13.8"
+  }
+}

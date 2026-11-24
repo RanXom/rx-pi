@@ -1,0 +1,7 @@
+node_modules/
+auth.json
+sessions/
+npm/
+install/
+models-store.json
+*.log

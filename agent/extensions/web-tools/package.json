@@ -1,0 +1,11 @@
+{
+  "name": "pi-web-tools",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "linkedom": "^0.18.11",
+    "turndown": "^7.2.0",
+    "typebox": "^1.0.0"
+  }
+}

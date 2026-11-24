@@ -1,0 +1,7 @@
+{
+  "modelDir": "~/.local/share/opencode-voice/models/sherpa-onnx-whisper-small.en",
+  "recorder": "ffmpeg",
+  "threads": 8,
+  "idleUnloadMinutes": 10,
+  "meter": true
+}
