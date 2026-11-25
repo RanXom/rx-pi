@@ -280,7 +280,7 @@ class Card implements Component {
 		const icon = snapshot.status.icon ?? DEFAULT_ICON[cardState];
 		const header = renderStatusLine({ ...snapshot.status, icon, spinnerFrame: running ? frame : undefined }, this.theme);
 		const lines =
-			snapshot.variant === "framed"
+			snapshot.variant === "framed" || input.isPartial
 				? renderFrame(
 						{
 							width: inner,

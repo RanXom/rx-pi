@@ -473,7 +473,9 @@ export default function dictateLocal(pi: ExtensionAPI) {
 
     try {
       await stopRecorder();
-      clearStatusTimers();
+      // Keep the spinner running while the model decodes; only the meter dies here.
+      if (meterTimer) clearInterval(meterTimer);
+      meterTimer = null;
       if (cancelled) {
         setStatus(undefined);
         return;
