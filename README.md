@@ -70,7 +70,7 @@ Dictation (`alt+m`) writes into whatever input is focused; it is not a tool.
 
 `Shift+Tab` toggles **plan** and **build**. The mode shows on the editor's
 bottom border. Plan mode disables edit/write, restricts bash to a read-only
-allowlist, and injects planning instructions. `/plan` toggles, `/todos` lists
+allowlist (including `git`/`gh` read commands), and injects planning instructions. `/plan` toggles, `/todos` lists
 progress.
 
 ### Commands
